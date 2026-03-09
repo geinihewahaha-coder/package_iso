@@ -1,0 +1,49 @@
+# 构建阶段：基于 Ubuntu 24.04 镜像
+FROM ubuntu:24.04 as ubuntu2404
+# 架构参数（保持原逻辑，适配不同架构）
+ARG TARGETARCH
+# Ubuntu 24.04 的系统版本代号（noble 是 24.04 官方代号，jammy 是 22.04）
+ARG OS_RELEASE=noble
+# 自定义目录名：适配 24.04 版本和目标架构
+ARG DIR=ubuntu-24.04-${TARGETARCH}-debs
+# 包列表参数：将 ubuntu2204 替换为 ubuntu2404，匹配自定义包清单的分组
+ARG PKGS=.common[],.debs[],.ubuntu[],.ubuntu2404[]
+# 构建工具集：24.04 兼容这些工具，无需修改
+ARG BUILD_TOOLS="apt-transport-https software-properties-common ca-certificates curl wget gnupg dpkg-dev genisoimage"
+# 非交互模式安装包，避免终端交互
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 导出系统已安装包列表（原逻辑不变）
+RUN dpkg --get-selections | grep -v deinstall | cut -f1 | cut -d ':' -f1 > packages.list
+# 更新源、安装构建工具、添加 Docker 官方源（仅替换 OS_RELEASE 为 noble）
+RUN apt update -qq \
+    && apt install -y --no-install-recommends $BUILD_TOOLS \
+    # 如需添加其他源（如 gluster），可取消注释并调整对应版本
+    #&& add-apt-repository ppa:gluster/glusterfs-10 -y \
+    && curl -fsSL "https://download.docker.com/linux/ubuntu/gpg" | apt-key add -qq - \
+    && echo "deb [arch=$TARGETARCH] https://download.docker.com/linux/ubuntu ${OS_RELEASE} stable" > /etc/apt/sources.list.d/docker.list\
+    && apt update -qq
+
+# 切换到工作目录
+WORKDIR /package
+# 复制自定义包清单文件（与原逻辑一致，需确保 packages.yaml 中有 ubuntu2404 分组）
+COPY packages.yaml .
+
+# 复制 yq 工具（用于解析 yaml 格式的包清单）
+COPY --from=mikefarah/yq:4.11.1 /usr/bin/yq /usr/bin/yq
+# 解析 yaml 中的包列表、去重、导出下载链接
+RUN yq eval "${PKGS}" packages.yaml >> packages.list \
+    && sort -u packages.list | xargs apt-get install --yes --reinstall --print-uris | awk -F "'" '{print $2}' | grep -v '^$' | sort -u > packages.urls
+
+# 下载所有包、生成 Packages.gz 索引、打包为 ISO 镜像
+RUN mkdir -p ${DIR} \
+    && wget -q -x -P ${DIR} -i packages.urls \
+    && cd ${DIR} \
+    && dpkg-scanpackages ./ /dev/null | gzip -9c > ./Packages.gz
+
+# 生成 ISO 镜像文件（文件名适配 24.04 目录）
+RUN genisoimage -r -o ${DIR}.iso ${DIR}
+
+# 最终阶段：仅保留 ISO 文件，减小镜像体积
+FROM scratch
+COPY --from=ubuntu2404 /package/*.iso /
