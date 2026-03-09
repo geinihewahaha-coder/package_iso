@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: centos7-rpms
-            dockerfile: dockerfile.centos7
+          # - name: centos7-rpms
+          #   dockerfile: dockerfile.centos7
           # - name: openEuler-22.03-rpms
           #   dockerfile: dockerfile.openEuler2203
           # - name: openEuler-23.09-rpms
@@ -40,6 +40,8 @@ jobs:
           #   dockerfile: dockerfile.ubuntu2004
           # - name: ubuntu-22.04-debs
           #   dockerfile: dockerfile.ubuntu2204
+            - name: ubuntu-24.04-debs
+              dockerfile: dockerfile.ubuntu2404
     steps:
       - name: Checkout
         uses: actions/checkout@v3
