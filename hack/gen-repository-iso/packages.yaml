@@ -1,6 +1,8 @@
 ---
 common:
-
+  - chrony
+  - k3s-selinux
+  
 rpms:
 
 debs:
