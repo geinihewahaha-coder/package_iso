@@ -8,8 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN dpkg --get-selections | grep -v deinstall | cut -f1 | cut -d ':' -f1 > packages.list
 RUN apt update -qq \
-    && export DEBIAN_FRONTEND=noninteractive
-    && export TZ=Asia/Shanghai
+    && export DEBIAN_FRONTEND=noninteractive \
+    && export TZ=Asia/Shanghai \
     && apt install -y --no-install-recommends $BUILD_TOOLS \
     && apt install -y chrony \
     # 如需添加其他源（如 gluster），可取消注释并调整对应版本
