@@ -2,6 +2,7 @@
 common:
   - chrony
   - k3s-selinux
+  - ntp
   
 rpms:
 
